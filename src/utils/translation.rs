@@ -1,5 +1,5 @@
-use std::collections::HashMap;
-use log::debug;
+use std::collections::{HashMap, HashSet};
+use log::{debug, info};
 use reqwest::header::{HeaderMap, HeaderValue};
 use serde_json::{json, Value};
 use url::Url;
@@ -16,7 +16,19 @@ pub async fn translate(word: &str) -> String {
     let response = client.post(url).headers(headers).body(body)
         .send().await.unwrap().json::<Value>().await.unwrap();
     debug!("Response from translate is: {}", response);
-    response.get("translatedText").unwrap().as_str().unwrap().to_owned()
+    let translation = response.get("translatedText").unwrap().as_str().unwrap().to_owned();
+    info!("Translation before trunc is: {}", translation);
+    let translation = truncate_translation(translation);
+    info!("Translation after trunc is: {}", translation);
+    translation
+}
+
+fn truncate_translation(translation: String) -> String {
+    let words = translation.split_ascii_whitespace().fold(HashSet::new(), |mut words, word| {
+        words.insert(word);
+        words
+    });
+    words.iter().cloned().collect::<Vec<&str>>().join(" ")
 }
 
 fn get_url() -> Url {
