@@ -17,6 +17,8 @@ pub mod traits {
 pub mod models {
     pub mod add_notes;
     pub mod find_notes;
+    pub mod deck_name;
+    pub mod create_deck;
 }
 
 #[derive(Parser, Debug)]
@@ -26,7 +28,7 @@ struct Args {
     note: Option<String>,
 
     /// Deck value. If it is an already existing deck, it will be selected
-    #[arg(short, long, default_value_t = String::from("practice"))]
+    #[arg(short, long, default_value_t = String::from("ExampleNewDeck"))]
     deck: String,
 }
 

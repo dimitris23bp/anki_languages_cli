@@ -16,7 +16,6 @@ pub async fn translate(word: &str) -> String {
     let response = client.post(url).headers(headers).body(body)
         .send().await.unwrap().json::<Value>().await.unwrap();
     debug!("Response from translate is: {}", response);
-    // TODO: Should this be to_owned()?
     response.get("translatedText").unwrap().as_str().unwrap().to_owned()
 }
 
