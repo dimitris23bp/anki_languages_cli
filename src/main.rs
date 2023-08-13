@@ -5,9 +5,13 @@ use log::{error, info};
 
 use crate::models::add_notes::AddNotes;
 
+pub mod handlers {
+    pub mod status_handler;
+}
 mod utils {
     pub mod anki;
     pub mod translation;
+    pub mod reqwest_wrapper;
 }
 
 pub mod traits {
@@ -24,6 +28,14 @@ pub mod models {
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Args {
+
+
+    #[arg(short, long = "source", default_value_t = String::from("en"))]
+    source_lang: String,
+
+    #[arg(short, long = "target", default_value_t = String::from("el"))]
+    target_lang: String,
+
     #[arg(short, long)]
     note: Option<String>,
 
@@ -47,11 +59,11 @@ async fn run() -> Result<(), Box<dyn Error>> {
     let args = Args::parse();
     let note: AddNotes;
 
+    info!("Source language is : {} and target language is: {}", args.source_lang, args.target_lang);
     info!("Deck is: {:?}", args.deck);
-    if let Some(value) = args.note {
-        let word = value;
+    if let Some(word) = args.note {
         info!("Front is: {}", word);
-        let back = utils::translation::translate(word.as_str()).await;
+        let back = utils::translation::translate(word.as_str(), args.source_lang, args.target_lang).await?;
         note = AddNotes::new(args.deck, word, back);
         utils::anki::create_notes(note).await;
     } else {

@@ -1,26 +1,43 @@
 use std::collections::{HashMap, HashSet};
-use log::{debug, info};
+
+use log::{debug, error, info};
 use reqwest::header::{HeaderMap, HeaderValue};
 use serde_json::{json, Value};
 use url::Url;
 
-pub async fn translate(word: &str) -> String {
+#[cfg(not(test))]
+const LIBRE_TRANSLATION_URL: &str = "https://libretranslate.org";
+#[cfg(test)]
+const LIBRE_TRANSLATION_URL: &str = "http://127.0.0.1:8089";
+
+pub async fn translate(word: &str, source: String, target: String) -> Result<String, String> {
     let url = get_url();
     debug!("URL is: {}", url);
     let headers = get_headers();
     debug!("Headers are: {:?}", headers);
-    let body = get_body(word);
+    let body = get_body(word, source, target);
     debug!("Body is: {:#?}", body);
 
     let client = reqwest::Client::new();
-    let response = client.post(url).headers(headers).body(body)
-        .send().await.unwrap().json::<Value>().await.unwrap();
-    debug!("Response from translate is: {}", response);
-    let translation = response.get("translatedText").unwrap().as_str().unwrap().to_owned();
-    info!("Translation before trunc is: {}", translation);
-    let translation = truncate_translation(translation);
-    info!("Translation after trunc is: {}", translation);
-    translation
+    let result_response = client.post(url).headers(headers).body(body)
+        .send().await;
+    if let Ok(value) = result_response {
+        if value.status().is_success() {
+            let response = value.json::<Value>().await.unwrap();
+            debug!("Response from translate is: {}", response);
+            let translation = response.get("translatedText").unwrap().as_str().unwrap().to_owned();
+            info!("Translation before trunc is: {}", translation);
+            let translation = truncate_translation(translation);
+            info!("Translation after trunc is: {}", translation);
+            Ok(translation)
+        } else {
+            // TODO: status_handler here
+            Err(String::from("fd"))
+        }
+    } else {
+        error!("Response from translation API could not be retrieved.");
+        Err(String::from("Error retrieving response from translation API."))
+    }
 }
 
 fn truncate_translation(translation: String) -> String {
@@ -28,18 +45,21 @@ fn truncate_translation(translation: String) -> String {
         words.insert(word);
         words
     });
-    words.iter().cloned().collect::<Vec<&str>>().join(" ")
+    if words.len() == 1 {
+        return words.iter().cloned().collect::<Vec<&str>>().join(" ");
+    }
+    translation
 }
 
 fn get_url() -> Url {
-    Url::parse("https://libretranslate.org/translate").unwrap()
+    Url::parse(format!("{}/translate", LIBRE_TRANSLATION_URL).as_str()).unwrap()
 }
 
-fn get_body(word: &str) -> String {
+fn get_body(word: &str, source: String, target: String) -> String {
     let mut body = HashMap::new();
     body.insert("q", word);
-    body.insert("source", "en");
-    body.insert("target", "el");
+    body.insert("source", source.as_str());
+    body.insert("target", target.as_str());
     body.insert("format", "text");
     body.insert("api_key", "");
     json!(body).to_string()
@@ -49,4 +69,51 @@ fn get_headers() -> HeaderMap {
     let mut headers = HeaderMap::new();
     headers.insert("content-type", HeaderValue::from_static("application/json"));
     headers
+}
+
+#[cfg(test)]
+mod tests {
+    use mockito::Matcher;
+    use serde_json::json;
+
+    use super::*;
+
+    #[tokio::test]
+    async fn test_something() {
+        env_logger::init();
+        let word = "application";
+        let source = String::from("en");
+        let target = String::from("el");
+
+        let mut server = mockito::Server::new_with_port(8089);
+        let url = server.url();
+        println!("Url isssss; {}", url);
+
+        let request_body = json!({
+            "q": word,
+            "source": source,
+            "target": target,
+            "format": "text",
+            "api_key": ""
+        });
+
+        let response_body = json!({
+            "translatedText": "οπα οπα οπα",
+        });
+        let mock = server.mock("POST", "/translate")
+            .match_body(Matcher::Json(request_body))
+            .match_header("Content-type", "application/json")
+            .with_body(response_body.to_string())
+            .with_header("Content-type", "application/json")
+            .create();
+
+        let result = translate(word, source, target).await;
+
+        // Verify that the mock server received the request as expected
+        mock.assert();
+
+        // Assert
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "οπα");
+    }
 }
