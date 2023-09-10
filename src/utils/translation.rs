@@ -5,13 +5,9 @@ use reqwest::header::{HeaderMap, HeaderValue};
 use serde_json::{json, Value};
 use url::Url;
 
-#[cfg(not(test))]
-const LIBRE_TRANSLATION_URL: &str = "https://libretranslate.org";
-#[cfg(test)]
-const LIBRE_TRANSLATION_URL: &str = "http://127.0.0.1:8089";
-
-pub async fn translate(word: &str, source: String, target: String) -> Result<String, String> {
-    let url = get_url();
+pub async fn translate(word: &str, source: String, target: String, base_url: &str) -> Result<String, String> {
+    info!("base url is: {}", base_url);
+    let url = get_url(base_url);
     debug!("URL is: {}", url);
     let headers = get_headers();
     debug!("Headers are: {:?}", headers);
@@ -51,8 +47,8 @@ fn truncate_translation(translation: String) -> String {
     translation
 }
 
-fn get_url() -> Url {
-    Url::parse(format!("{}/translate", LIBRE_TRANSLATION_URL).as_str()).unwrap()
+fn get_url(base_url: &str) -> Url {
+    Url::parse(format!("{}/translate", base_url).as_str()).unwrap()
 }
 
 fn get_body(word: &str, source: String, target: String) -> String {
@@ -79,15 +75,13 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    async fn test_something() {
+    async fn test_translation() {
         env_logger::init();
         let word = "application";
         let source = String::from("en");
         let target = String::from("el");
 
-        let mut server = mockito::Server::new_with_port(8089);
-        let url = server.url();
-        println!("Url isssss; {}", url);
+        let mut server = mockito::Server::new();
 
         let request_body = json!({
             "q": word,
@@ -107,7 +101,7 @@ mod tests {
             .with_header("Content-type", "application/json")
             .create();
 
-        let result = translate(word, source, target).await;
+        let result = translate(word, source, target, &server.url()).await;
 
         // Verify that the mock server received the request as expected
         mock.assert();

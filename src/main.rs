@@ -1,13 +1,20 @@
+#[macro_use]
+extern crate lazy_static;
+
 use std::error::Error;
 
 use clap::Parser;
 use log::{error, info};
 
+use crate::config::CONFIG;
 use crate::models::add_notes::AddNotes;
+
+pub mod config;
 
 pub mod handlers {
     pub mod status_handler;
 }
+
 mod utils {
     pub mod anki;
     pub mod translation;
@@ -28,8 +35,6 @@ pub mod models {
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Args {
-
-
     #[arg(short, long = "source", default_value_t = String::from("en"))]
     source_lang: String,
 
@@ -63,9 +68,9 @@ async fn run() -> Result<(), Box<dyn Error>> {
     info!("Deck is: {:?}", args.deck);
     if let Some(word) = args.note {
         info!("Front is: {}", word);
-        let back = utils::translation::translate(word.as_str(), args.source_lang, args.target_lang).await?;
+        let back = utils::translation::translate(word.as_str(), args.source_lang, args.target_lang, &CONFIG.urls.libre_translate).await?;
         note = AddNotes::new(args.deck, word, back);
-        utils::anki::create_notes(note).await;
+        utils::anki::create_notes(note, &CONFIG.urls.anki).await;
     } else {
         info!("No new note");
     }
