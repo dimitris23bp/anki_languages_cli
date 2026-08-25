@@ -22,7 +22,6 @@ Most of the arguments can be skipped. For more information, please run:
 cargo run -- -h 
 ```
 
-
 ## Left to do
 - Make it an executable, so that it will be possible to use without _cargo_
 - Add more translation APIs and the option to choose between them 
