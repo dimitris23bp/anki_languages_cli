@@ -28,3 +28,8 @@ cargo run -- -h
 - Add more translation APIs and the option to choose between them 
 - Add more tests to insure the robustness of the project
 - Add more general commands (e.g. delete a deck, or even display word and study them) to transform this into a CLI anki
+
+
+Thaaat's a random line
+
+Yo yoo
